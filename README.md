@@ -1,1 +1,2 @@
-# MZR-knjiznicar
+# Opis problema: 
+Ljudje v knjižnico prihajajo v skladu z neko porazdelitvijo in prinašajo izposojene knjige. Ko oseba vrne knjige, sta dve možnosti. Če v knjižnici ni nobenega druge osebe, ki bi rada vrnil knjige, knjižničar takoj odnese vse knjige, ki so se mu do tedaj nabrale. V nasprotnem primeru sprejme novo osebo, zato da ne bi čakala. Ker pa knjižničar noče, da bi se mu nabral velik kup knjig, jih v vsakem primeru odnese, ko se mu nabere 10 knjig. Če je takrat v vrsti kakšna oseba, ki bi rada vrnila knjige, mora počakati, da se knjižničar vrne k okencu. Zanima me čas, ki ga bo stranka v povprečju čakala.
