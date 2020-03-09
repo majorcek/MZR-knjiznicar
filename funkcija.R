@@ -70,7 +70,7 @@ simulacija_prihodov <- function(t, parameter) {
       st_knjig <- novo_stanje_knjig_pred_pospravljanjem
       pospravljanje <- 0
     }
-     
+    
     # število ljudi v knjižnici / v vrsti 
     prejsnji_prihod <- stranke_prihodi_knjige[n - 1,1]
     stevilo_obravnavanih <- length(which((skupna_tabela$cas_odhoda >= prejsnji_prihod) & 
@@ -97,7 +97,7 @@ simulacija_prihodov <- function(t, parameter) {
     
     n <- n + 1
   }
-   skupna_tabela
+  skupna_tabela
 }
 
 
@@ -107,36 +107,57 @@ simulacija_prihodov <- function(t, parameter) {
 
 #ANALIZA
 
-cas_opazovanja <- 10000
-glavna_tabela <- simulacija_prihodov(cas_opazovanja, 0.035)
+cas_opazovanja <- 1000
+tabela <- simulacija_prihodov(cas_opazovanja, 0.02)
+tabela_brez_zadnjega <- tabela[1:(length(tabela[,1]) - 1),]
 
-
+glavna_tabela <- rbind(c(0,0,0,0,0,0,0,0,0,0), tabela_brez_zadnjega)
 
 # graf, ki prikazuje, kako se spreminja število ljudi v knjižnici.
-tabela_aux_casi1 <- data.frame(glavna_tabela$cas_prihoda, 1)
+tabela_aux_casi1 <- data.frame(glavna_tabela$cas_prihoda[2:length(glavna_tabela$cas_prihoda)], 1)
 names(tabela_aux_casi1) <- c("cas", "prihod/odhod")
-tabela_aux_casi2 <- data.frame(glavna_tabela$cas_odhoda, -1)
+tabela_aux_casi2 <- data.frame(glavna_tabela$cas_odhoda[2:length(glavna_tabela$cas_odhoda)], -1)
 names(tabela_aux_casi2) <- c("cas", "prihod/odhod")
-tabela_stevila_strank_tocna <- rbind(tabela_aux_casi1, tabela_aux_casi2)
+tabela_stevila_strank_tocna <- rbind(c(0,0), tabela_aux_casi1, tabela_aux_casi2)
 tabela_stevila_strank_tocna <- tabela_stevila_strank_tocna[order(tabela_stevila_strank_tocna$`cas`),]
 tabela_stevila_strank_tocna$stevilo_strank_v_knjiznici <- cumsum(tabela_stevila_strank_tocna$`prihod/odhod`)
 tabela_stevila_strank_tocna$razlika <- c(diff(tabela_stevila_strank_tocna$cas),0)
 
 ggplot(data = tabela_stevila_strank_tocna) +
-  geom_point(mapping = aes(x = cas, y = stevilo_strank_v_knjiznici))  +
-  geom_line(mapping = aes(x = cas, y = stevilo_strank_v_knjiznici))  +
+  geom_step(mapping = aes(x = cas, y = stevilo_strank_v_knjiznici)) +
+  scale_x_continuous(breaks=seq(0, tail(tabela_stevila_strank_tocna$cas, 1), cas_opazovanja/10))
+
+# Koliko strank pride v enem dnevu?
+stevilo_strank_v_celem_dnevu <- length(glavna_tabela[,1]) - 1
+
+
+# Koliko časa je knjižničar brez dela?
+tabela_brezdelja <- data.frame(glavna_tabela$cas_prihoda, glavna_tabela$cas_odhoda, glavna_tabela$cas_knjiznicarja)
+tabela_brezdelja$cas_naslednjega_prihoda <- c(glavna_tabela$cas_prihoda[2:length(glavna_tabela$cas_prihoda)], cas_opazovanja)
+names(tabela_brezdelja) <- c("cas_prihoda", "cas_odhoda", "cas_knjiznicarja", "cas_naslednjega_prihoda")
+tabela_brezdelja$cas_brezdelja <- tabela_brezdelja$cas_naslednjega_prihoda - (tabela_brezdelja$cas_odhoda + tabela_brezdelja$cas_knjiznicarja)
+
+cas_brezdelja <- sum(tabela_brezdelja$cas_brezdelja[tabela_brezdelja$cas_brezdelja >= 0])
+
+# graf, ki ponazarja, kdaj je knjižničar brez dela
+strnjena_tabela_brezdelja <- tabela_brezdelja[tabela_brezdelja$cas_brezdelja >= 0,]
+aux1_brezdelje <- data.frame(strnjena_tabela_brezdelja$cas_odhoda + strnjena_tabela_brezdelja$cas_knjiznicarja, 0)
+names(aux1_brezdelje) <- c("cas", "stanje")
+aux2_brezdelje <- data.frame(strnjena_tabela_brezdelja$cas_naslednjega_prihoda, 1)
+names(aux2_brezdelje) <- c("cas", "stanje")
+
+tabela_brezdelje_graf <- rbind(aux1_brezdelje, aux2_brezdelje) 
+tabela_brezdelje_graf <- tabela_brezdelje_graf[order(tabela_brezdelje_graf$cas),]
+tabela_brezdelje_graf <- rbind(tabela_brezdelje_graf, c(cas_opazovanja, tabela_brezdelje_graf$stanje[length(tabela_brezdelje_graf)]))
+
+ggplot(data = tabela_brezdelje_graf) + 
+  geom_step(mapping = aes(x = cas, y = stanje)) +
   scale_x_continuous(breaks=seq(0, tail(tabela_stevila_strank_tocna$cas, 1), cas_opazovanja/10))
 
 
-# Koliko ljudi pride?
-stevilo_strank_v_celem_dnevu <- length(glavna_tabela[,1])
+# graf, koliko časa knjižničar nima dela
 
-# Koliko časa je knjižničar brez dela?
-tabela_aux_knjiznicar <- tabela_stevila_strank_tocna[tabela_stevila_strank_tocna$stevilo_strank_v_knjiznici == 0, c(1,4)]
-names(tabela_aux_knjiznicar) <- c("cas_odhoda", "cas_do_naslednjega")
-tabela_knjiznicar <- merge(x = tabela_aux_knjiznicar, y = glavna_tabela, by = "cas_odhoda", all.x = TRUE)
-tabela_knjiznicar <- tabela_knjiznicar[tabela_knjiznicar$cas_do_naslednjega - tabela_knjiznicar$cas_knjiznicarja > 0,]
-cas_knjiznicarja_brez_dela <- sum(tabela_knjiznicar$cas_do_naslednjega - tabela_knjiznicar$cas_knjiznicarja)
+
 
 # VPRAŠANJA:
 # Do kdaj dela, če zaklene vrata ob šestih?
@@ -145,4 +166,5 @@ cas_knjiznicarja_brez_dela <- sum(tabela_knjiznicar$cas_do_naslednjega - tabela_
 # Koliko časa čaka posamezen človek?
 
 # POTREBNO SPREMENITI:
+# skupni čas knjižničarja brez dela v odvisnosti časa
 # Čas strežbe je v sekundah -> spremeni diskretno v zvezno porazdelitev
