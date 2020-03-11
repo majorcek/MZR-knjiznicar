@@ -1,3 +1,24 @@
+# Documentacija:
+# max_knjig ......................... po največ koliko vrnjenih knjigah knjižničar odnese vse knjige na police.
+# utezi_za_knjige ................... verjetnosti, da posameznik prinese eno, dve... ali osem knjig
+# cas_za_vracanje_ene_knjige ........ čas, da stranka izroči knjigo knjižničarju (knjiga v tistem trenutnku še vedno na šalterju)
+# cas_za_izposojo_ene_knjige ........ čas, da knjižničar pofočka knjigo in jo izroči stranki
+# trajanje_klica_rezervacije ........ trajanje klica, ko stranka pri knjižničarju naredi rezervacijo.
+# cas_odnasanja_k_knjig ............. funkcija, ki vrne čas, da knjižničar pravilno razvrsti k knjig iz šalterja na police 
+# 
+# stranke_prihodi_knjige ............ tabela, v kateri so zabeleženi prihodi strank in število knjig, ki ji prinesejo
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
 
 library("ggplot2")
 library("magrittr")
@@ -7,11 +28,13 @@ library("rvest")
 #set.seed(1)
 
 #sliderji
-max_knjig <- 10
+max_knjig <- 10 
 utezi_za_knjige <- c(0.35, 0.23, 0.15, 0.1, 0.07, 0.05, 0.03, 0.02)
 cas_za_vracanje_ene_knjige <- 3
 cas_za_izposojo_ene_knjige <- 3
-
+povprecno_trajanje_klica_rezervacije <- 20 
+intenziteta_prihodov <- 0.04
+intenziteta_klicov <- 0.01
 
 cas_odnasanja_k_knjig <- function(k){
   50 + 10*k
@@ -19,17 +42,30 @@ cas_odnasanja_k_knjig <- function(k){
 
 
 #GLAVNA FUNKCIJA, KI NAREDI SKUPNO TABELO
-simulacija_prihodov <- function(t, parameter) { 
+simulacija_prihodov <- function(t, parameter_prihodov, parameter_klicov) { 
   
-  # Dataframe, ki vsebuje čase prihodov in število prinešenih knjig
-  stranke_prihodi_knjige <- data.frame(rexp(1, parameter), sample(c(1:8), size = 1, prob = utezi_za_knjige))
+  # tabela, ki vsebuje čase prihodov in število prinešenih knjig
+  stranke_prihodi_knjige <- data.frame(rexp(1, parameter_prihodov), sample(c(1:8), size = 1, prob = utezi_za_knjige))
   names(stranke_prihodi_knjige) <- c("cas_vstopa","st_knjig")
   
   while(tail(stranke_prihodi_knjige[,1],1) < t) {
-    cas_novega_skoka <- tail(stranke_prihodi_knjige[,1],1) + rexp(1, parameter)
+    cas_novega_skoka <- tail(stranke_prihodi_knjige[,1],1) + rexp(1, parameter_prihodov)
     prinesene_knjige <- sample(c(1:8), size = 1, prob = utezi_za_knjige)
-    stranke_prihodi_knjige[nrow(stranke_prihodi_knjige)+1,] <- c(cas_novega_skoka, prinesene_knjige)
+    stranke_prihodi_knjige[nrow(stranke_prihodi_knjige) + 1,] <- c(cas_novega_skoka, prinesene_knjige)
   }
+  
+  
+  # tabela, ki vsebuje case klicov rezervacij in trajanja teh klicov
+  tabela_rezervacije_aux <- data.frame(rexp(1, parameter_klicov), povprecno_trajanje_klica_rezervacije * runif(1, min = 0.8, 1.25))
+  names(tabela_rezervacije_aux) <- c("cas", "trajanje")
+  while(tail(tabela_rezervacije_aux[,1],1) < t){
+    cas_klica <- tail(tabela_rezervacije_aux$cas, 1) + rexp(1, parameter_klicov)
+    trajanje_klica <- povprecno_trajanje_klica_rezervacije * runif(1, min = 0.8, 1.25))
+tabela_rezervacije_aux[,length(tabela_rezervacije_aux[,1]) + 1] <- c(cas_klica, trajanje_klica)
+  }
+  tabela_rezervacije <- tabela_rezervacije_aux[1:length(tabela_rezervacije_aux[,1])-1,]
+  
+  
   
   
   # glavna_tabela
@@ -116,7 +152,7 @@ simulacija_prihodov <- function(t, parameter) {
 cas_obratovanja <- 3600
 cas_opazovanja <- 2 * cas_obratovanja
 
-tabela <- simulacija_prihodov(cas_obratovanja, 0.04)
+tabela <- simulacija_prihodov(cas_obratovanja, intenziteta_prihodov, intenziteta_klicov)
 tabela_brez_zadnjega <- tabela[1:(length(tabela[,1]) - 1),]
 
 
@@ -206,5 +242,3 @@ ggplot(data = glavna_tabela) +
 
 
 # POTREBNO SPREMENITI:
-
-# Čas strežbe je v sekundah -> spremeni diskretno v zvezno porazdelitev
