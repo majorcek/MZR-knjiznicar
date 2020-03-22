@@ -59,8 +59,6 @@ dodaj_zacetne_klice <- function(n, cas_klica, tabela1, tabela2){
         zacetek <- max(cas_klica, cas_zadnje_vrnitve_knjiznicarja)
         trajanje_pogovora <- runif(1, min = 20, max = 40)
         st_strank <- length(tabela1[tabela1$cas <= cas_klica, 1]) - length(tabela2[as.character(tabela2$vrsta_opravila) != "KLIC", 1])
-        #st_strank <- length(tabela1[tabela1$cas <= cas_klica, 1]) - length(tabela2[tabela2$vrsta_opravila != "KLIC", 1])
-        
         stanje_knjig <- tail(tabela2$skupno_stevilo_knjig, 1)
         nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), zacetek, trajanje_pogovora, zacetek + trajanje_pogovora,
                                    st_strank, stanje_knjig, as.numeric(0), "KLIC")
@@ -101,7 +99,6 @@ dodaj_vmesne_klice <- function(n, cas_klica, tabela1, tabela2){
     trajanje_pogovora <- runif(1, min = 20, max = 40)
     stanje_knjig <- tail(tabela2$skupno_stevilo_knjig,1)
     st_strank <- length(tabela1[tabela1$cas <= cas_klica,1]) - length(tabela2[as.character(tabela2$vrsta_opravila) != "KLIC", 1])
-    # st_strank <- length(tabela1[tabela1$cas <= cas_klica, 1]) - length(tabela2[tabela2$vrsta_opravila != "KLIC", 1])
     
     if (tail(tabela2$vrsta_opravila,1) == "KLIC"){
       zacetek_pogovora <- cas_klica
@@ -138,8 +135,8 @@ prihod_n <- function(n, tabela1, tabela2, cas_odhoda){
   
   zaporedni_vnos <- length(tabela2[,1]) + 1
   zacetek_strezbe <- max(podatki_stranka$cas, tail(tabela2$cas_odhoda,1) + tail(tabela2$cas_knjiznicarja,1))
-  st_strank <- n - length(tabela2[as.character(tabela2$vrsta_opravila) != "KLIC", 1])
-  
+  tabela_koncanih_strank <- tabela2[tabela2$cas_odhoda >= podatki_stranka$cas, ]
+  st_strank <- length(tabela_koncanih_strank[as.character(tabela_koncanih_strank$vrsta_opravila) != "KLIC", 1]) + 1
   
   stanje_knjig_pred_pospravljanjem <- podatki_stranka$st_knjig + tail(tabela2$skupno_stevilo_knjig,1)
   if (stanje_knjig_pred_pospravljanjem >= max_knjig){
@@ -352,17 +349,12 @@ while (cas_klica < t){
   cas_klica <- cas_klica + trajanje_pogovora + rexp(1, rate = parameter_klicov)
 }
 
-
-##############################################################
-
-
-
-ggplot(data = skupna_tabela) +
-  geom_step(mapping = aes(x = cas_prihoda, y = st_strank_v_knjiznici)) +
-  scale_x_continuous(breaks=seq(0, tail(skupna_tabela$cas_odhoda,1), t/10))
+############################################################################################
+# Osnovna tabela je narejena. Zdaj naredimo tabele, katere bomo uporabili pri vizualizaciji.
+############################################################################################
 
 
-# graf, ki prikazuje, kako se spreminja število ljudi v knjižnici.
+# 1. tabela za graf, ki prikazuje, kako se spreminja število ljudi v knjižnici.
 tabela_samo_strank <- skupna_tabela[skupna_tabela$vrsta_opravila != "KLIC",]
 
 tabela_aux_casi1 <- data.frame(tabela_samo_strank$cas_prihoda[2:length(tabela_samo_strank$cas_prihoda)], 1)
@@ -374,79 +366,98 @@ tabela_stevila_strank_tocna <- tabela_stevila_strank_tocna[order(tabela_stevila_
 tabela_stevila_strank_tocna$stevilo_strank_v_knjiznici <- cumsum(tabela_stevila_strank_tocna$`prihod/odhod`)
 tabela_stevila_strank_tocna$razlika <- c(diff(tabela_stevila_strank_tocna$cas),0)
 
+# 2. Koliko strank pride v enem dnevu?
+stevilo_strank_v_celem_dnevu <- length(skupna_tabela[,1])
+
+# 3. Koliko časa je knjižničar brez dela?
+tabela_brezdelja <- data.frame(skupna_tabela$cas_prihoda, skupna_tabela$cas_odhoda, skupna_tabela$cas_knjiznicarja)
+tabela_brezdelja$cas_naslednjega_prihoda <- c(skupna_tabela$cas_prihoda[2:length(skupna_tabela$cas_prihoda)], t)
+names(tabela_brezdelja) <- c("cas_prihoda", "cas_odhoda", "cas_knjiznicarja", "cas_naslednjega_prihoda")
+tabela_brezdelja$cas_brezdelja <- tabela_brezdelja$cas_naslednjega_prihoda - (tabela_brezdelja$cas_odhoda + tabela_brezdelja$cas_knjiznicarja)
+
+cas_brezdelja <- sum(tabela_brezdelja$cas_brezdelja[tabela_brezdelja$cas_brezdelja >= 0])
+
+# 4. tabela za graf, ki ponazarja, kdaj je knjižničar brez dela
+strnjena_tabela_brezdelja <- tabela_brezdelja[tabela_brezdelja$cas_brezdelja >= 0,]
+aux1_brezdelje <- data.frame(strnjena_tabela_brezdelja$cas_odhoda + strnjena_tabela_brezdelja$cas_knjiznicarja, 0)
+names(aux1_brezdelje) <- c("cas", "stanje")
+aux2_brezdelje <- data.frame(strnjena_tabela_brezdelja$cas_naslednjega_prihoda, 1)
+names(aux2_brezdelje) <- c("cas", "stanje")
+
+tabela_brezdelje_graf <- rbind(aux1_brezdelje, aux2_brezdelje) 
+tabela_brezdelje_graf <- tabela_brezdelje_graf[order(tabela_brezdelje_graf$cas),]
+tabela_brezdelje_graf <- rbind(tabela_brezdelje_graf, c(t, tabela_brezdelje_graf$stanje[length(tabela_brezdelje_graf)]))
+
+# 5. tabela za graf, koliko časa knjižničar nima dela
+tabela_brezdelja2 <- tabela_brezdelja[tabela_brezdelja$cas_brezdelja >= 0,]
+tabela_brezdelja2$vsota <- cumsum(tabela_brezdelja2$cas_brezdelja)
+
+tabela_brezdelja2_aux1 <- data.frame(tabela_brezdelja2$cas_odhoda + tabela_brezdelja2$cas_knjiznicarja, tabela_brezdelja2$vsota)
+tabela_brezdelja2_aux2 <- data.frame(tabela_brezdelja2$cas_naslednjega_prihoda, tabela_brezdelja2$vsota)
+names(tabela_brezdelja2_aux1) <- c("cas_ko_konca", "vsota")
+names(tabela_brezdelja2_aux2) <- c("cas_ko_konca", "vsota")
+tabela_brezdelja2_aux1$vsota <- c(0,tabela_brezdelja2_aux1$vsota[1:length(tabela_brezdelja2_aux1$vsota)-1])
+tabela_brezdelja2_graf <- rbind(tabela_brezdelja2_aux1, tabela_brezdelja2_aux2)
+tabela_brezdelja2_graf <- tabela_brezdelja2_graf[order(tabela_brezdelja2_graf$cas_ko_konca),]
+tabela_brezdelja2_graf[length(tabela_brezdelja2_graf$cas_ko_konca) + 1,] <- c(t, tail(tabela_brezdelja2_graf$vsota, 1))
+
+
+# 6. Do kdaj dela, če zaklene vrata ob casu_obratovanja?
+odhod_knjiznicarja <- tail(skupna_tabela$cas_odhoda,1) + tail(skupna_tabela$cas_knjiznicarja, 1)
+
+# 7. Koliko knjig vrne v enem dnevu?
+st_knjig_v_enem_dnevu <- sum(skupna_tabela$st_prinesenih_knjig)
+
+# 8. Koliko časa ljudje čakajo v vrsti?
+tabela_cakanje <- skupna_tabela[,c(2,4)]
+tabela_cakanje$cakanje <- tabela_cakanje$cas_zacetka_strezbe - tabela_cakanje$cas_prihoda
+skupni_cas_cakanja <- sum(tabela_cakanje$cakanje)
+
+
+
+##############
+
+
+
+
+
+
+#############################################################################################
+# VIZUALIZACIJA
+#############################################################################################
+
+# Kakšno je število strank ob vsakem prihodu ali klicu?
+ggplot(data = skupna_tabela) +
+  geom_step(mapping = aes(x = vrstni_red, y = st_strank_v_knjiznici)) +
+  scale_x_continuous(breaks=seq(0, tail(skupna_tabela$cas_odhoda,1), t/10))
+
+
+# Število strank v knjižnici v vsakem trenutku.
 ggplot(data = tabela_stevila_strank_tocna) +
   geom_step(mapping = aes(x = cas, y = stevilo_strank_v_knjiznici)) +
   scale_x_continuous(breaks=seq(0, tail(tabela_stevila_strank_tocna[,1],1), t/10))
 
-# # Koliko strank pride v enem dnevu?
-# stevilo_strank_v_celem_dnevu <- length(glavna_tabela[,1]) - 1
-# 
-# 
-# # Koliko časa je knjižničar brez dela?
-# tabela_brezdelja <- data.frame(glavna_tabela$cas_prihoda, glavna_tabela$cas_odhoda, glavna_tabela$cas_knjiznicarja)
-# tabela_brezdelja$cas_naslednjega_prihoda <- c(glavna_tabela$cas_prihoda[2:length(glavna_tabela$cas_prihoda)], cas_obratovanja)
-# names(tabela_brezdelja) <- c("cas_prihoda", "cas_odhoda", "cas_knjiznicarja", "cas_naslednjega_prihoda")
-# tabela_brezdelja$cas_brezdelja <- tabela_brezdelja$cas_naslednjega_prihoda - (tabela_brezdelja$cas_odhoda + tabela_brezdelja$cas_knjiznicarja)
-# 
-# cas_brezdelja <- sum(tabela_brezdelja$cas_brezdelja[tabela_brezdelja$cas_brezdelja >= 0])
-# 
-# # graf, ki ponazarja, kdaj je knjižničar brez dela
-# strnjena_tabela_brezdelja <- tabela_brezdelja[tabela_brezdelja$cas_brezdelja >= 0,]
-# aux1_brezdelje <- data.frame(strnjena_tabela_brezdelja$cas_odhoda + strnjena_tabela_brezdelja$cas_knjiznicarja, 0)
-# names(aux1_brezdelje) <- c("cas", "stanje")
-# aux2_brezdelje <- data.frame(strnjena_tabela_brezdelja$cas_naslednjega_prihoda, 1)
-# names(aux2_brezdelje) <- c("cas", "stanje")
-# 
-# tabela_brezdelje_graf <- rbind(aux1_brezdelje, aux2_brezdelje) 
-# tabela_brezdelje_graf <- tabela_brezdelje_graf[order(tabela_brezdelje_graf$cas),]
-# tabela_brezdelje_graf <- rbind(tabela_brezdelje_graf, c(cas_obratovanja, tabela_brezdelje_graf$stanje[length(tabela_brezdelje_graf)]))
-# 
-# ggplot(data = tabela_brezdelje_graf) + 
-#   geom_step(mapping = aes(x = cas, y = stanje)) +
-#   scale_x_continuous(breaks=seq(0, tail(tabela_stevila_strank_tocna$cas, 1), cas_obratovanja/10))
-# 
-# 
-# # graf, koliko časa knjižničar nima dela
-# tabela_brezdelja2 <- tabela_brezdelja[tabela_brezdelja$cas_brezdelja >= 0,]
-# tabela_brezdelja2$vsota <- cumsum(tabela_brezdelja2$cas_brezdelja)
-# 
-# tabela_brezdelja2_aux1 <- data.frame(tabela_brezdelja2$cas_odhoda + tabela_brezdelja2$cas_knjiznicarja, tabela_brezdelja2$vsota)
-# tabela_brezdelja2_aux2 <- data.frame(tabela_brezdelja2$cas_naslednjega_prihoda, tabela_brezdelja2$vsota)
-# names(tabela_brezdelja2_aux1) <- c("cas_ko_konca", "vsota")
-# names(tabela_brezdelja2_aux2) <- c("cas_ko_konca", "vsota")
-# tabela_brezdelja2_aux1$vsota <- c(0,tabela_brezdelja2_aux1$vsota[1:length(tabela_brezdelja2_aux1$vsota)-1])
-# tabela_brezdelja2_graf <- rbind(tabela_brezdelja2_aux1, tabela_brezdelja2_aux2)
-# tabela_brezdelja2_graf <- tabela_brezdelja2_graf[order(tabela_brezdelja2_graf$cas_ko_konca),]
-# tabela_brezdelja2_graf[length(tabela_brezdelja2_graf$cas_ko_konca) + 1,] <- c(cas_obratovanja, tail(tabela_brezdelja2_graf$vsota, 1))
-# 
-# ggplot(data = tabela_brezdelja2_graf) + 
-#   geom_point(mapping = aes(x = cas_ko_konca, y = vsota)) +
-#   geom_line(mapping = aes(x = cas_ko_konca, y = vsota)) +
-#   scale_x_continuous(breaks=seq(0, tail(tabela_stevila_strank_tocna$cas, 1), cas_obratovanja/10))
-# 
-# 
-# # Do kdaj dela, če zaklene vrata ob casu_obratovanja?
-# odhod_knjiznicarja <- tail(glavna_tabela$cas_odhoda,1) + tail(glavna_tabela$cas_knjiznicarja, 1)
-# 
-# # Koliko knjig vrne v enem dnevu?
-# st_knjig_v_enem_dnevu <- sum(glavna_tabela$st_prinesenih_knjig)
-# 
-# # Koliko časa ljudje čakajo v vrsti?
-# tabela_cakanje <- glavna_tabela[,c(2,4)]
-# tabela_cakanje$cakanje <- tabela_cakanje$cas_zacetka_strezbe - tabela_cakanje$cas_prihoda
-# skupni_cas_cakanja <- sum(tabela_cakanje$cakanje)
-# 
-# # Koliko časa čaka posamezen človek?
-# ggplot(data = glavna_tabela) + 
-#   geom_line(aes(x = vrstni_red, y = cas_zacetka_strezbe - cas_prihoda))
-# 
-# 
-# 
+# graf, ki ponazarja, kdaj je knjižničar brez dela
+ggplot(data = tabela_brezdelje_graf) + 
+  geom_step(mapping = aes(x = cas, y = stanje)) +
+  scale_x_continuous(breaks=seq(0, tail(tabela_stevila_strank_tocna$cas, 1), t/10))
+ 
+# graf, koliko časa knjižničar nima dela 
+ggplot(data = tabela_brezdelja2_graf) + 
+ geom_point(mapping = aes(x = cas_ko_konca, y = vsota)) +
+ geom_line(mapping = aes(x = cas_ko_konca, y = vsota)) +
+ scale_x_continuous(breaks=seq(0, tail(tabela_stevila_strank_tocna$cas, 1), t/10))
+ 
+# Koliko časa čaka posamezen človek?
+ggplot(data = skupna_tabela) +
+  geom_line(aes(x = vrstni_red, y = cas_zacetka_strezbe - cas_prihoda))
+
+
 # # VPRAŠANJA:
 # 
 # 
 # # POTREBNO SPREMENITI:
-# popravi število strank v knjižnici
+# dolžina strežbe in cas knjižničarja v random uniform
 # odstraniti as.character ali spremeniti 
 # funkcija, ki izračuna novo stanje knjig
 
