@@ -153,7 +153,10 @@ prihod_n <- function(n, tabela1, tabela2, cas_odhoda, max_knjig){
 }
 
 
-########
+
+############################################
+# Funkcija, ki naredi tabelo_vseh prihodov
+############################################
 
 ustvari_novo_vrsto_prihodov <- function(tabela, parameter_prihodov, utezi_za_knjige){
   cas_novega_skoka <- tail(tabela[,1],1) + rexp(1, parameter_prihodov)
@@ -209,7 +212,7 @@ ustvari_tabelo_prihodov <- function(parameter_prihodov, utezi_za_knjige, t){
     names(nova_vrsta) <- names(tabela)
     tabela <- rbind(tabela, nova_vrsta)
   }
- tabela 
+ tabela[1:length(tabela[,1])-1,]
 }
 
 
@@ -417,5 +420,6 @@ ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_za
 # # POTREBNO SPREMENITI:
 # dolžina strežbe in cas knjižničarja v random uniform
 # funkcija, ki izračuna novo stanje knjig
-# klici dovoljeni ja/ne kot parameter funkcije.
+# dodaj stolpec za število izposojenih knjig
+# kljukico za klice zraven parametra
 
