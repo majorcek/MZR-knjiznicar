@@ -23,55 +23,49 @@ naredi_tabelo_stanja_strank <- function(tabela){
 }
 
 
-naredi_tabelo_brez_dela <- function(tabela){
+naredi_tabelo_brez_dela <- function(tabela, cas_obratovanja){
 
   # 3. Koliko časa je knjižničar brez dela?
-  tabela_brezdelja <- data.frame(tabela$cas_prihoda, tabela$cas_odhoda, tabela$cas_knjiznicarja)
-  tabela_brezdelja$cas_naslednjega_prihoda <- c(tabela$cas_prihoda[2:length(tabela$cas_prihoda)], t)
-  names(tabela_brezdelja) <- c("cas_prihoda", "cas_odhoda", "cas_knjiznicarja", "cas_naslednjega_prihoda")
+  t2 <- tabela[c(1,2,6,9)]
+  t2 <- t2[order(t2$cas_prihoda),]
+  t2$original_red <- c(1:length(t2[,1]))
+  t2$sprejemljiv <- t2$vrstni_red - t2$original_red
+  t2 <- t2[t2$sprejemljiv >= 0,]
+  t2 <- t2[, c(2,3,4)]
+  
+  tabela_brezdelja <- t2[order(t2$cas_prihoda),]
+  tabela_brezdelja$cas_naslednjega_prihoda <- c(t2$cas_prihoda[2:length(t2$cas_prihoda)], cas_obratovanja)
+  print(head(tabela_brezdelja,5))
   tabela_brezdelja$cas_brezdelja <- tabela_brezdelja$cas_naslednjega_prihoda - (tabela_brezdelja$cas_odhoda + tabela_brezdelja$cas_knjiznicarja)
   
-  cas_brezdelja <- sum(tabela_brezdelja$cas_brezdelja[tabela_brezdelja$cas_brezdelja >= 0])
+  #cas_brezdelja <- sum(tabela_brezdelja$cas_brezdelja[tabela_brezdelja$cas_brezdelja >= 0])
   
-  # 4. tabela za graf, ki ponazarja, kdaj je knjižničar brez dela
-  strnjena_tabela_brezdelja <- tabela_brezdelja[tabela_brezdelja$cas_brezdelja >= 0,]
-  aux1_brezdelje <- data.frame(strnjena_tabela_brezdelja$cas_odhoda + strnjena_tabela_brezdelja$cas_knjiznicarja, 0)
-  names(aux1_brezdelje) <- c("cas", "stanje")
-  aux2_brezdelje <- data.frame(strnjena_tabela_brezdelja$cas_naslednjega_prihoda, 1)
-  names(aux2_brezdelje) <- c("cas", "stanje")
+  strnjena <- tabela_brezdelja[tabela_brezdelja$cas_brezdelja > 0,]
+  strnjena$skupen_cas <- cumsum(strnjena$cas_brezdelja) + strnjena$cas_prihoda[1]
   
-  tabela_brezdelje_graf <- rbind(aux1_brezdelje, aux2_brezdelje) 
-  tabela_brezdelje_graf <- tabela_brezdelje_graf[order(tabela_brezdelje_graf$cas),]
-  tabela_brezdelje_graf <- rbind(tabela_brezdelje_graf, c(t, tabela_brezdelje_graf$stanje[length(tabela_brezdelje_graf)]))
+  aux1 <- data.frame(c(0,strnjena$cas_prihoda, tail(strnjena$cas_naslednjega_prihoda,1)), c(0,strnjena$cas_prihoda[1],strnjena$skupen_cas))
+  names(aux1) <- c("cas", "cas_brez_dela")
+  aux2 <- data.frame(c(strnjena$cas_odhoda + strnjena$cas_knjiznicarja, cas_obratovanja), c(strnjena$cas_prihoda[1], strnjena$skupen_cas))
+  names(aux2) <- c("cas", "cas_brez_dela")
+  knjiznicar <- rbind(aux1, aux2)
+  knjiznicar <- knjiznicar[order(knjiznicar$cas),]
   
-  # 5. tabela za graf, koliko časa knjižničar nima dela
-  tabela_brezdelja2 <- tabela_brezdelja[tabela_brezdelja$cas_brezdelja >= 0,]
-  tabela_brezdelja2$vsota <- cumsum(tabela_brezdelja2$cas_brezdelja)
-  
-  tabela_brezdelja2_aux1 <- data.frame(tabela_brezdelja2$cas_odhoda + tabela_brezdelja2$cas_knjiznicarja, tabela_brezdelja2$vsota)
-  tabela_brezdelja2_aux2 <- data.frame(tabela_brezdelja2$cas_naslednjega_prihoda, tabela_brezdelja2$vsota)
-  names(tabela_brezdelja2_aux1) <- c("cas_ko_konca", "vsota")
-  names(tabela_brezdelja2_aux2) <- c("cas_ko_konca", "vsota")
-  tabela_brezdelja2_aux1$vsota <- c(0,tabela_brezdelja2_aux1$vsota[1:length(tabela_brezdelja2_aux1$vsota)-1])
-  tabela_brezdelja2_graf <- rbind(tabela_brezdelja2_aux1, tabela_brezdelja2_aux2)
-  tabela_brezdelja2_graf <- tabela_brezdelja2_graf[order(tabela_brezdelja2_graf$cas_ko_konca),]
-  tabela_brezdelja2_graf[length(tabela_brezdelja2_graf$cas_ko_konca) + 1,] <- c(t, tail(tabela_brezdelja2_graf$vsota, 1))
-  
-  tabela_brezdelja2_graf
+  knjiznicar
 }
 
 
 
-# # 2. Koliko strank pride v enem dnevu?
-# stevilo_strank_v_celem_dnevu <- length(tabela[,1])
-# 
-# # 6. Do kdaj dela, če zaklene vrata ob casu_obratovanja?
-# odhod_knjiznicarja <- tail(tabela$cas_odhoda,1) + tail(tabela$cas_knjiznicarja, 1)
-# 
-# # 7. Koliko knjig vrne v enem dnevu?
-# st_knjig_v_enem_dnevu <- sum(tabela$st_prinesenih_knjig)
-# 
-# # 8. Koliko časa ljudje čakajo v vrsti?
-# tabela_cakanje <- tabela[,c(2,4)]
-# tabela_cakanje$cakanje <- tabela_cakanje$cas_zacetka_strezbe - tabela_cakanje$cas_prihoda
-# skupni_cas_cakanja <- sum(tabela_cakanje$cakanje)
+# Koliko strank pride v enem dnevu?
+podatki <- function(tabela){
+  stevilo_strank_v_celem_dnevu <- length(tabela[,1])
+  odhod_knjiznicarja_domov <- tail(tabela$cas_odhoda,1) + tail(tabela$cas_knjiznicarja, 1)
+  skupno_stevilo_prinesenih_knjig <- sum(tabela$st_prinesenih_knjig)
+  skupni_cas_cakanja <- sum(tabela$cas_zacetka_strezbe - tabela$cas_prihoda)
+  najdaljsi_cas_cakanja <- max(tabela$cas_zacetka_strezbe - tabela$cas_prihoda)
+  pomozna <- tabela[tabela$vrsta_opravila != "KLIC",]
+  najdaljsi_prebit_cas_v_knjiznici <- max(pomozna$cas_odhoda - pomozna$cas_prihoda)
+  
+  c(stevilo_strank_v_celem_dnevu, odhod_knjiznicarja_domov, skupno_stevilo_prinesenih_knjig, skupni_cas_cakanja, najdaljsi_cas_cakanja, najdaljsi_prebit_cas_v_knjiznici)
+}
+
+ 
