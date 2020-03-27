@@ -29,10 +29,11 @@ ui <- dashboardPage(
       sliderInput(inputId = "max_knjig", label = "kritično št. knjig", 
                   value = 10, min = 1, max = 30),
       sliderInput(inputId = "max_izposojenih", label = "najvecje stevilo knjig izposoje",
-                  value = 8, min = 1, max = 8),
+                  value = 8, min = 1, max = 8)
+      #,
+      #uiOutput("ver")
       
       #numericInput(inputId = "verjetnost1", label = "P(vzame 1 knjigo)", value = 1, min = 0, max = 1, step = 0.01),
-      uiOutput("comparison")
     )
   ),
   
@@ -65,15 +66,19 @@ ui <- dashboardPage(
 
 server <- function(input,output){
   
-  output$comparison <- renderUI({
-    req(input$slider)
-    
-    mySliders <- lapply(1:input$slider, function(i) {
-      sliderInput(inputId = glue("verjetnost{i}"), label = h3(glue("verjetnost{i}")), value = 0, min = 0, max = 0, step = 0.01) 
-    })
-    do.call(tabsetPanel, mySliders)
-  })
-  
+  # vrednost <- reactiveValues(
+  #   stevilo = 0
+  # )
+  # 
+  # observeEvent(input$max_izposojenih,
+  #              {
+  #                vrednost$stevilo <- input$max_izposojenih
+  #              })
+  # 
+  # output$ver <- renderUI({
+  #   vrednost$stevilo
+  #   })
+  # 
   #output$verjetnost1 <- renderUI({numericInput(inputId = "verjetnost2", "Izberi P(k = 2)", value = 0, min = 0, max = 1 - input$verjetnost1)})
   
   tabela <- reactive({ustvari_skupno_tabelo(input$parameter_prihodi, 
