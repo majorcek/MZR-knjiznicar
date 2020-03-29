@@ -1,12 +1,13 @@
 library(ggplot2)
-
+library(dplyr)
 
 cas_za_vracanje_ene_knjige <- 3
 cas_za_izposojo_ene_knjige <- 3
 
 prazna_tabela <-  data.frame("vrstni_red" = integer(), 
                              "cas_prihoda" = numeric(), 
-                             "st_prinesenih_knjig" = integer(), 
+                             "st_prinesenih_knjig" = integer(),
+                             "st_izposojenih_knjig" = integer(),
                              "cas_zacetka_strezbe" = numeric(), 
                              "dolzina_strezbe" = numeric(),
                              "cas_odhoda" = numeric(),
@@ -44,7 +45,7 @@ dodaj_zacetne_klice <- function(n, cas_klica, tabela1, tabela2, t, parameter_kli
       trajanje_pogovora <- runif(1, min = 20, max = 40)
       st_strank <- length(tabela1[tabela1$cas <= cas_klica, 1]) - length(tabela2[tabela2$vrsta_opravila != "KLIC", 1])
       stanje_knjig <- tail(tabela2$skupno_stevilo_knjig, 1)
-      nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), cas_klica, trajanje_pogovora, cas_klica + trajanje_pogovora,
+      nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), as.integer(0), cas_klica, trajanje_pogovora, cas_klica + trajanje_pogovora,
                                  st_strank, stanje_knjig, as.numeric(0), "KLIC")
       names(nova_vrstica) <- names(tabela_zacetnih)
       tabela_zacetnih <- rbind(tabela_zacetnih, nova_vrstica)
@@ -57,7 +58,7 @@ dodaj_zacetne_klice <- function(n, cas_klica, tabela1, tabela2, t, parameter_kli
         trajanje_pogovora <- runif(1, min = 20, max = 40)
         st_strank <- length(tabela1[tabela1$cas <= cas_klica, 1]) - length(tabela2[as.character(tabela2$vrsta_opravila) != "KLIC", 1])
         stanje_knjig <- tail(tabela2$skupno_stevilo_knjig, 1)
-        nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), zacetek, trajanje_pogovora, zacetek + trajanje_pogovora,
+        nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), as.integer(0), zacetek, trajanje_pogovora, zacetek + trajanje_pogovora,
                                    st_strank, stanje_knjig, as.numeric(0), "KLIC")
         names(nova_vrstica) <- names(tabela2)
         tabela_zacetnih <- rbind(tabela_zacetnih, nova_vrstica)
@@ -71,7 +72,7 @@ dodaj_zacetne_klice <- function(n, cas_klica, tabela1, tabela2, t, parameter_kli
 }
 
 # funkcija, ki dobi čas n-tega prihoda iz tabele1 in doda v tabelo2 vse klice, ki se začnejo po prihodu n-te stranke in pred odhodom n-te stranke
-dodaj_vmesne_klice <- function(n, cas_klica, tabela1, tabela2, verjetnost_za_izposojo, t, parameter_klicov){
+dodaj_vmesne_klice <- function(n, cas_klica, tabela1, tabela2, verjetnost_za_izposojo, t, parameter_klicov, max_izposojenih_knjig){
   tabela_vmesnih <- prazna_tabela
   podatki_stranke <- tabela1[n,]
   # Če v prejšnjem koraku nismo imeli nobenega klica, potem moramo upoštevati čas vračanja knjižničarja
@@ -82,9 +83,9 @@ dodaj_vmesne_klice <- function(n, cas_klica, tabela1, tabela2, verjetnost_za_izp
   if (opravilo == "VRACANJE"){
     trajanje <- podatki_stranke$cas_za_vracanje
   }else if (opravilo == "IZPOSOJA"){
-    trajanje <- sample(c(1:8), 1, prob = verjetnost_za_izposojo) * cas_za_izposojo_ene_knjige
+    trajanje <- podatki_stranke$st_izposojenih_knjig * cas_za_izposojo_ene_knjige
   }else{
-    trajanje <- podatki_stranke$cas_za_vracanje + sample(c(1:8), 1, prob = verjetnost_za_izposojo) * cas_za_izposojo_ene_knjige
+    trajanje <- podatki_stranke$cas_za_vracanje + podatki_stranke$st_izposojenih_knjig * cas_za_izposojo_ene_knjige
   }
   
   cas_odhoda <- zacetek_strezbe + trajanje
@@ -99,7 +100,7 @@ dodaj_vmesne_klice <- function(n, cas_klica, tabela1, tabela2, verjetnost_za_izp
     
     if (tail(tabela2$vrsta_opravila,1) == "KLIC"){
       zacetek_pogovora <- cas_klica
-      nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), zacetek_pogovora, trajanje_pogovora, zacetek_pogovora + trajanje_pogovora,
+      nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), as.integer(0), zacetek_pogovora, trajanje_pogovora, zacetek_pogovora + trajanje_pogovora,
                                  st_strank, stanje_knjig, as.numeric(0), "KLIC")
       names(nova_vrstica) <- names(tabela2)
       tabela2 <- rbind(tabela2, nova_vrstica)
@@ -110,7 +111,7 @@ dodaj_vmesne_klice <- function(n, cas_klica, tabela1, tabela2, verjetnost_za_izp
       zadnja_vrnitev_knjiznicarja <- tail(tabela2$cas_odhoda,1) + tail(tabela2$cas_knjiznicarja,1)
       if (cas_klica + trajanje_zvonenja >= zadnja_vrnitev_knjiznicarja){
         zacetek_pogovora <- max(cas_klica, zadnja_vrnitev_knjiznicarja)
-        nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), zacetek_pogovora, trajanje_pogovora, zacetek_pogovora + trajanje_pogovora,
+        nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), as.integer(0), zacetek_pogovora, trajanje_pogovora, zacetek_pogovora + trajanje_pogovora,
                                    st_strank, stanje_knjig, as.numeric(0), "KLIC")
         names(nova_vrstica) <- names(tabela2)
         tabela_vmesnih <- rbind(tabela_vmesnih, nova_vrstica)
@@ -143,10 +144,11 @@ prihod_n <- function(n, tabela1, tabela2, cas_odhoda, max_knjig){
     novo_stanje_knjig <- stanje_knjig_pred_pospravljanjem
     pospravljanje <- as.numeric(0)
   }
-  
   opravilo <- as.character(podatki_stranka$vrsta_opravila)
   
-  nova_vrstica <- data.frame(zaporedni_vnos, podatki_stranka$cas, podatki_stranka$st_knjig, zacetek_strezbe, cas_odhoda - zacetek_strezbe, cas_odhoda,
+  st_izposojenih_knjig <- podatki_stranka$st_izposojenih_knjig
+  
+  nova_vrstica <- data.frame(zaporedni_vnos, podatki_stranka$cas, podatki_stranka$st_knjig, st_izposojenih_knjig, zacetek_strezbe, cas_odhoda - zacetek_strezbe, cas_odhoda,
                              st_strank, novo_stanje_knjig, pospravljanje, opravilo)
   names(nova_vrstica) <- names(prazna_tabela)
   nova_vrstica
@@ -158,33 +160,37 @@ prihod_n <- function(n, tabela1, tabela2, cas_odhoda, max_knjig){
 # Funkcija, ki naredi tabelo_vseh prihodov
 ############################################
 
-ustvari_novo_vrsto_prihodov <- function(tabela, parameter_prihodov, utezi_za_knjige){
+ustvari_novo_vrsto_prihodov <- function(tabela, parameter_prihodov, utezi_in, utezi_out, max_izposojenih_knjig){
   cas_novega_skoka <- tail(tabela[,1],1) + rexp(1, parameter_prihodov)
   
   opravilo <- as.character(sample(c("IZPOSOJA", "VRACANJE", "VRACANJE IN IZPOSOJA"), 1))
   if(opravilo == "VRACANJE IN IZPOSOJA"){
-    prinesene_knjige <- sample(c(1:8), size = 1, prob = utezi_za_knjige)
+    prinesene_knjige <- sample(c(1:max_izposojenih_knjig), size = 1, prob = utezi_in)
     cas_vracanja <- prinesene_knjige * cas_za_vracanje_ene_knjige * runif(1,min = 0.8, max = 1.25) + 10
+    izposojene_knjige <- sample(c(1:max_izposojenih_knjig), size = 1, prob = utezi_out)
   }else if(opravilo == "IZPOSOJA"){
     prinesene_knjige <- as.integer(0)
+    izposojene_knjige <- sample(c(1:max_izposojenih_knjig), size = 1, prob = utezi_out)
     cas_vracanja <- as.numeric(0)
   }else if(opravilo == "VRACANJE"){
-    prinesene_knjige <- sample(c(1:8), size = 1, prob = utezi_za_knjige)
+    prinesene_knjige <- sample(c(1:max_izposojenih_knjig), size = 1, prob = utezi_in)
     cas_vracanja <- prinesene_knjige * cas_za_vracanje_ene_knjige * runif(1,min = 0.8, max = 1.25) + 10
+    izposojene_knjige <- as.integer(0)
   }
   
-  nova_vrsta <- data.frame(cas_novega_skoka, opravilo, prinesene_knjige, cas_vracanja)
+  nova_vrsta <- data.frame(cas_novega_skoka, opravilo, prinesene_knjige, cas_vracanja, izposojene_knjige)
   nova_vrsta 
 }  
 
 
 
 # funkcija, ki ustvari tabelo prihodov
-ustvari_tabelo_prihodov <- function(parameter_prihodov, utezi_za_knjige, t){
+ustvari_tabelo_prihodov <- function(parameter_prihodov, utezi_in, utezi_out, t, max_izposojenih_knjig){
   tabela <- data.frame("cas" = numeric(), 
-                                "vrsta_opravila" = factor(levels = c("VRACANJE", "VRACANJE IN IZPOSOJA", "IZPOSOJA")),
-                                "st_knjig" = integer(),
-                                "cas_za_vracanje" = numeric())
+                       "vrsta_opravila" = factor(levels = c("VRACANJE", "VRACANJE IN IZPOSOJA", "IZPOSOJA")),
+                       "st_knjig" = integer(),
+                       "cas_za_vracanje" = numeric(),
+                       "st_izposojenih_knjig" = integer())
   
   
   # dodamo prvo vrsto
@@ -192,27 +198,30 @@ ustvari_tabelo_prihodov <- function(parameter_prihodov, utezi_za_knjige, t){
   opravilo <- sample(c("VRACANJE", "VRACANJE IN IZPOSOJA", "IZPOSOJA"), 1)
   
   if(opravilo == "VRACANJE IN IZPOSOJA"){
-    prinesene_knjige <- sample(c(1:8), size = 1, prob = utezi_za_knjige)
+    prinesene_knjige <- sample(c(1:max_izposojenih_knjig), size = 1, prob = utezi_in)
     cas_vracanja <- prinesene_knjige * cas_za_vracanje_ene_knjige * runif(1,min = 0.8, max = 1.25) + 10
+    izposojene_knjige <- sample(c(1:max_izposojenih_knjig), size = 1, prob = utezi_out)
   } else if(opravilo == "IZPOSOJA"){
-    prinesene_knjige <- 0
-    cas_vracanja <- 0
+    prinesene_knjige <- as.integer(0)
+    cas_vracanja <- as.numeric(0)
+    izposojene_knjige <- sample(c(1:max_izposojenih_knjig), size = 1, prob = utezi_out)
   }else if(opravilo == "VRACANJE"){
-    prinesene_knjige <- sample(c(1:8), size = 1, prob = utezi_za_knjige)
+    prinesene_knjige <- sample(c(1:max_izposojenih_knjig), size = 1, prob = utezi_in)
     cas_vracanja <- prinesene_knjige * cas_za_vracanje_ene_knjige * runif(1,min = 0.8, max = 1.25) + 10
+    izposojene_knjige <- as.integer(0)
   }
   
-  prva_vrsta <- data.frame(cas_vstopa, opravilo, prinesene_knjige, cas_vracanja)
+  prva_vrsta <- data.frame(cas_vstopa, opravilo, prinesene_knjige, cas_vracanja, izposojene_knjige)
   names(prva_vrsta) <- names(tabela)
   tabela <- rbind(tabela, prva_vrsta)
   
   # Dodamo še vse preostale vrstice
   while (tail(tabela[,1],1) < t) {
-    nova_vrsta <- ustvari_novo_vrsto_prihodov(tabela, parameter_prihodov, utezi_za_knjige)
+    nova_vrsta <- ustvari_novo_vrsto_prihodov(tabela, parameter_prihodov, utezi_in, utezi_out, max_izposojenih_knjig)
     names(nova_vrsta) <- names(tabela)
     tabela <- rbind(tabela, nova_vrsta)
   }
- tabela[1:length(tabela[,1])-1,]
+  tabela[1:length(tabela[,1])-1,]
 }
 
 
@@ -238,12 +247,13 @@ ustvari_tabelo_prihodov <- function(parameter_prihodov, utezi_za_knjige, t){
 
 #### Glavna funkcija, s katero naredimo tabelo.
 
-ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_za_knjige, verjetnost_za_izposojo, t, max_knjig, klici_dovoljenje){
-  tabela_prihodov <- ustvari_tabelo_prihodov(parameter_prihodov, utezi_za_knjige, t)
-
+ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_knjige_in, utezi_knjige_out, t, max_knjig, klici_dovoljenje, max_izposojenih_knjig){
+  tabela_prihodov <- ustvari_tabelo_prihodov(parameter_prihodov, utezi_knjige_in, utezi_knjige_out, t, max_izposojenih_knjig)
+  
   tabela_v_nastajanju <-  data.frame("vrstni_red" = integer(), 
                                      "cas_prihoda" = numeric(), 
                                      "st_prinesenih_knjig" = integer(), 
+                                     "st_izposojenih_knjig" = integer(),
                                      "cas_zacetka_strezbe" = numeric(), 
                                      "dolzina_strezbe" = numeric(),
                                      "cas_odhoda" = numeric(),
@@ -262,7 +272,7 @@ ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_za
     while (cas_klica < prva_stranka$cas){
       zaporedni_vnos <- length(tabela_v_nastajanju[,1]) + 1
       trajanje_pogovora <- runif(1, min = 20, max = 40)
-      nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), cas_klica, trajanje_pogovora, cas_klica + trajanje_pogovora,
+      nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), as.integer(0), cas_klica, trajanje_pogovora, cas_klica + trajanje_pogovora,
                                  as.integer(0), as.integer(0), as.numeric(0), "KLIC")
       names(nova_vrstica) <- names(tabela_v_nastajanju)
       tabela_v_nastajanju <- rbind(tabela_v_nastajanju, nova_vrstica)
@@ -280,9 +290,9 @@ ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_za
     if (opravilo == "VRACANJE"){
       trajanje <- prva_stranka$cas_za_vracanje
     }else if (opravilo == "IZPOSOJA"){
-      trajanje <- sample(c(1:8), 1, prob = verjetnost_za_izposojo) * cas_za_izposojo_ene_knjige
+      trajanje <- prva_stranka$st_izposojenih_knjig * cas_za_izposojo_ene_knjige
     }else{
-      trajanje <- prva_stranka$cas_za_vracanje + sample(c(1:8), 1, prob = verjetnost_za_izposojo) * cas_za_izposojo_ene_knjige
+      trajanje <- prva_stranka$cas_za_vracanje + prva_stranka$st_izposojenih_knjig * cas_za_izposojo_ene_knjige
     }
     
     konec_strezbe <- zacetek_strezbe + trajanje
@@ -291,7 +301,7 @@ ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_za
     while (cas_klica < konec_strezbe){
       zaporedni_vnos <- length(tabela_v_nastajanju[,1]) + 1
       trajanje_pogovora <- runif(1, min = 20, max = 40)
-      nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), cas_klica, trajanje_pogovora, cas_klica + trajanje_pogovora,
+      nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), as.integer(0), cas_klica, trajanje_pogovora, cas_klica + trajanje_pogovora,
                                  as.integer(1), as.integer(0), as.numeric(0), "KLIC")
       names(nova_vrstica) <- names(tabela_v_nastajanju)
       tabela_v_nastajanju <- rbind(tabela_v_nastajanju, nova_vrstica)
@@ -312,7 +322,7 @@ ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_za
     }
     opravilo <- as.character(prva_stranka$vrsta_opravila)
     
-    nova_vrstica <- data.frame(zaporedni_vnos, prva_stranka$cas, prva_stranka$st_knjig, zacetek_strezbe, konec_strezbe - zacetek_strezbe, konec_strezbe,
+    nova_vrstica <- data.frame(zaporedni_vnos, prva_stranka$cas, prva_stranka$st_knjig, prva_stranka$st_izposojenih_knjig, zacetek_strezbe, konec_strezbe - zacetek_strezbe, konec_strezbe,
                                as.integer(1), novo_stanje_knjig, pospravljanje, opravilo)
     names(nova_vrstica) <- names(tabela_v_nastajanju)
     tabela_v_nastajanju <- rbind(tabela_v_nastajanju, nova_vrstica)
@@ -323,7 +333,6 @@ ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_za
     
     ################### sedaj dodamo še preostale vrstice
     
-    
     stevilo_prihodov <- length(tabela_prihodov[,1])
     n <- 2
     
@@ -332,7 +341,7 @@ ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_za
       tabela_v_nastajanju <- rbind(tabela_v_nastajanju, stanje_po_novih[[1]])
       cas_klica <- stanje_po_novih[[2]]
       
-      tabela_po_vmesnih <- dodaj_vmesne_klice(n, cas_klica, tabela_prihodov, tabela_v_nastajanju, verjetnost_za_izposojo, t, parameter_klicov)
+      tabela_po_vmesnih <- dodaj_vmesne_klice(n, cas_klica, tabela_prihodov, tabela_v_nastajanju, utezi_knjige_out, t, parameter_klicov)
       tabela_v_nastajanju <- rbind(tabela_v_nastajanju, tabela_po_vmesnih[[1]]) 
       cas_klica <- tabela_po_vmesnih[[2]]
       cas_odhoda <- tabela_po_vmesnih[[3]]
@@ -351,7 +360,7 @@ ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_za
       st_strank <- length(tabela_prihodov[,1]) - length(tabela_v_nastajanju[as.character(tabela_v_nastajanju$vrsta_opravila) != "KLIC",1])
       
       stanje_knjig <- tail(tabela_v_nastajanju$skupno_stevilo_knjig,1)
-      nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), cas_klica, trajanje_pogovora, cas_klica + trajanje_pogovora,
+      nova_vrstica <- data.frame(zaporedni_vnos, cas_klica, as.integer(0), as.integer(0), cas_klica, trajanje_pogovora, cas_klica + trajanje_pogovora,
                                  st_strank, stanje_knjig, as.numeric(0), "KLIC")
       names(nova_vrstica) <- names(tabela_v_nastajanju)
       tabela_v_nastajanju <- rbind(tabela_v_nastajanju, nova_vrstica)
@@ -360,27 +369,43 @@ ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_za
   }else{
     #dodajamo samo osebne prihode, klicov ni
     n <- 1
+    stranka_n <- tabela_prihodov[1,]
+    cas_prihoda <- stranka_n$cas
+    
+
+    zacetek <- cas_prihoda
+    prinesene_knjige <- as.integer(stranka_n$st_knjig)
+    izposojene_knjige <- as.integer(stranka_n$st_izposojenih_knjig)
+    opravilo <- stranka_n$vrsta_opravila    
+    trajanje <- prinesene_knjige * cas_za_izposojo_ene_knjige + izposojene_knjige * cas_za_izposojo_ene_knjige
+
+    if (prinesene_knjige >= max_knjig){
+      novo_stanje_knjig <- as.integer(0)
+      pospravljanje <- cas_odnasanja_k_knjig(prinesene_knjige)
+    }else{
+      novo_stanje_knjig <- prinesene_knjige
+      pospravljanje <- as.numeric(0)
+    }
+    
+    nov_prihod <- data.frame(n, cas_prihoda, prinesene_knjige, izposojene_knjige, zacetek, trajanje, zacetek + trajanje, as.integer(1),
+                             novo_stanje_knjig, pospravljanje, opravilo)
+    names(nov_prihod) <- names(tabela_v_nastajanju)
+    tabela_v_nastajanju <- rbind(tabela_v_nastajanju, nov_prihod)
+    
+    
+    n <- 2
     stevilo_prihodov <- length(tabela_prihodov[,1])
     while (n <= stevilo_prihodov){
       stranka_n <- tabela_prihodov[n,]
       cas_prihoda <- stranka_n$cas
-      knjige <- stranka_n$st_knjig
+      prinesene_knjige <- stranka_n$st_knjig
+      izposojene_knjige <- stranka_n$st_izposojenih_knjig
       opravilo <- stranka_n$vrsta_opravila
-      if (opravilo == "VRACANJE"){
-        trajanje <- stranka_n$cas_za_vracanje 
-      }else{
-        cas_za_izposojo <- cas_za_izposojo_ene_knjige * sample(c(1:8), 1, prob = verjetnost_za_izposojo)
-        trajanje <- stranka_n$cas_za_vracanje + cas_za_izposojo
-      }
-      st_strank <- length(tabela_v_nastajanju[tabela_v_nastajanju$cas_odhoda >= cas_prihoda,1]) + 1
+      trajanje <- prinesene_knjige * cas_za_izposojo_ene_knjige + izposojene_knjige * cas_za_izposojo_ene_knjige
       
-      if (n == 1){
-        zacetek <- cas_prihoda
-        st_knjig_pred_urejanjem <- as.integer(knjige)
-      }else{
-        zacetek <- max(cas_prihoda, tail(tabela_v_nastajanju$cas_odhoda,1)+ tail(tabela_v_nastajanju$cas_knjiznicarja,1))
-        st_knjig_pred_urejanjem <- knjige + tail(tabela_v_nastajanju$skupno_stevilo_knjig, 1)
-      }
+      st_strank <- length(tabela_v_nastajanju[tabela_v_nastajanju$cas_odhoda >= cas_prihoda,1]) + 1
+      zacetek <- max(cas_prihoda, tail(tabela_v_nastajanju$cas_odhoda,1) + tail(tabela_v_nastajanju$cas_knjiznicarja,1))
+      st_knjig_pred_urejanjem <- prinesene_knjige + tail(tabela_v_nastajanju$skupno_stevilo_knjig, 1)
       
       if (st_knjig_pred_urejanjem >= max_knjig){
         pospravljanje <- st_knjig_pred_urejanjem
@@ -390,11 +415,11 @@ ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_za
         novo_stevilo_knjig <- st_knjig_pred_urejanjem
       }
       
-      nov_prihod <- data.frame(n, cas_prihoda, knjige, zacetek, trajanje, zacetek + trajanje, st_strank,
+      nov_prihod <- data.frame(n, cas_prihoda, prinesene_knjige, izposojene_knjige, zacetek, trajanje, zacetek + trajanje, st_strank,
                                novo_stevilo_knjig, pospravljanje, opravilo)
       names(nov_prihod) <- names(tabela_v_nastajanju)
       tabela_v_nastajanju <- rbind(tabela_v_nastajanju, nov_prihod)
-
+      
       
       n <- n + 1
     }
@@ -407,19 +432,19 @@ ustvari_skupno_tabelo <- function(parameter_prihodov, parameter_klicov, utezi_za
 ############################################################################################
 
 
-#skupna_tabela <- ustvari_skupno_tabelo(0.04, 0.004,c(0.35, 0.25, 0.15, 0.09, 0.07, 0.04, 0.03, 0.02),
- #                                      verjetnost_za_izposojo = c(0.35, 0.25, 0.15, 0.09, 0.07, 0.04, 0.03, 0.02),
-  #                                     t = 10000, 
-   #                                    max_knjig = 10)
+# skupna_tabela <- ustvari_skupno_tabelo(0.04, 0.004,c(0.35, 0.25, 0.15, 0.09, 0.07, 0.04, 0.03, 0.02),
+#                                        utezi_knjige_out = c(0.35, 0.25, 0.15, 0.09, 0.07, 0.04, 0.03, 0.02),
+#                                      t = 10000, 
+#                                     max_knjig = 10,
+#                                     TRUE,
+#                                     max_izposojenih_knjig = 8)
 
 
 # # VPRAŠANJA:
-# checkbox  po kategorijah strank
-# delay uteži za knjige (verjetnosti)
 
 # # POTREBNO SPREMENITI:
 # dolžina strežbe in cas knjižničarja v random uniform
 # funkcija, ki izračuna novo stanje knjig
-# dodaj stolpec za število izposojenih knjig
-# kljukico za klice zraven parametra
+# dodaj graf po številu knjig
+# dodaj tabelo za vračanje knjig
 
