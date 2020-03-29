@@ -26,7 +26,7 @@ naredi_tabelo_stanja_strank <- function(tabela){
 naredi_tabelo_brez_dela <- function(tabela, cas_obratovanja){
 
   # 3. Koliko časa je knjižničar brez dela?
-  t2 <- tabela[c(1,2,6,9)]
+  t2 <- tabela[c(1,2,7,10)]
   t2 <- t2[order(t2$cas_prihoda),]
   t2$original_red <- c(1:length(t2[,1]))
   t2$sprejemljiv <- t2$vrstni_red - t2$original_red
@@ -56,16 +56,15 @@ naredi_tabelo_brez_dela <- function(tabela, cas_obratovanja){
 
 
 # Koliko strank pride v enem dnevu?
-podatki <- function(tabela){
+pridobi_podatke <- function(tabela){
   stevilo_strank_v_celem_dnevu <- length(tabela[,1])
   odhod_knjiznicarja_domov <- tail(tabela$cas_odhoda,1) + tail(tabela$cas_knjiznicarja, 1)
   skupno_stevilo_prinesenih_knjig <- sum(tabela$st_prinesenih_knjig)
   skupni_cas_cakanja <- sum(tabela$cas_zacetka_strezbe - tabela$cas_prihoda)
   najdaljsi_cas_cakanja <- max(tabela$cas_zacetka_strezbe - tabela$cas_prihoda)
-  pomozna <- tabela[tabela$vrsta_opravila != "KLIC",]
-  najdaljsi_prebit_cas_v_knjiznici <- max(pomozna$cas_odhoda - pomozna$cas_prihoda)
-  
-  c(stevilo_strank_v_celem_dnevu, odhod_knjiznicarja_domov, skupno_stevilo_prinesenih_knjig, skupni_cas_cakanja, najdaljsi_cas_cakanja, najdaljsi_prebit_cas_v_knjiznici)
+  najdalje_v_knjiznici <- max(tabela$cas_odhoda - tabela$cas_prihoda)
+
+  c(stevilo_strank_v_celem_dnevu, odhod_knjiznicarja_domov, skupno_stevilo_prinesenih_knjig, skupni_cas_cakanja, najdaljsi_cas_cakanja, najdalje_v_knjiznici)
 }
 
  
