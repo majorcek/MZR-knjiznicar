@@ -1,3 +1,6 @@
+# Zagon:
+Aplikacijo se zažene s klikom run app v datoteki app.R.
+
 # Opis problema: 
 Ljudje v knjižnico prihajajo v skladu z neko porazdelitvijo in prinašajo izposojene knjige. Ko oseba vrne knjige, sta dve možnosti. Če se je pri knjižničarju že nabralo dovolj knjig (na začetku je mejna vrednost nastavljena na 10), knjižničar odnese vse knjige na prave police. Če je takrat v vrsti kakšna oseba, ki bi rada vrnila knjige, mora počakati, da se knjižničar vrne k okencu. 
 V nasprotnem primeru sprejme novo osebo, zato da ne bi predolgo čakala. 
