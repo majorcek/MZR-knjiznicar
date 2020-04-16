@@ -1,19 +1,16 @@
-#source("funkcija.R")
 
-
-# funkcija, ki naredi vse tabela, katere uporabimo za vizualizacijo
-
+# funkcije, ki jih uporabimo pri vizualizaciji
 
 
 naredi_tabelo_stanja_strank <- function(tabela){
+  tabela_samo_strank <- tabela[tabela$vrsta_opravila != "KLIC",]    #odstranimo klice
   
-  # 1. tabela za graf, ki prikazuje, kako se spreminja število ljudi v knjižnici.
-  tabela_samo_strank <- tabela[tabela$vrsta_opravila != "KLIC",]
-  
+  # povzamemo vse dogodke
   tabela_aux_casi1 <- data.frame(tabela_samo_strank$cas_prihoda[2:length(tabela_samo_strank$cas_prihoda)], 1)
   names(tabela_aux_casi1) <- c("cas", "prihod/odhod")
   tabela_aux_casi2 <- data.frame(tabela_samo_strank$cas_odhoda[2:length(tabela_samo_strank$cas_odhoda)], -1)
   names(tabela_aux_casi2) <- c("cas", "prihod/odhod")
+  
   tabela_stevila_strank_tocna <- rbind(c(0,0), tabela_aux_casi1, tabela_aux_casi2)
   tabela_stevila_strank_tocna <- tabela_stevila_strank_tocna[order(tabela_stevila_strank_tocna$`cas`),]
   tabela_stevila_strank_tocna$stevilo_strank_v_knjiznici <- cumsum(tabela_stevila_strank_tocna$`prihod/odhod`)
@@ -35,7 +32,6 @@ naredi_tabelo_brez_dela <- function(tabela, cas_obratovanja){
   
   tabela_brezdelja <- t2[order(t2$cas_prihoda),]
   tabela_brezdelja$cas_naslednjega_prihoda <- c(t2$cas_prihoda[2:length(t2$cas_prihoda)], cas_obratovanja)
-  print(head(tabela_brezdelja,5))
   tabela_brezdelja$cas_brezdelja <- tabela_brezdelja$cas_naslednjega_prihoda - (tabela_brezdelja$cas_odhoda + tabela_brezdelja$cas_knjiznicarja)
   
   #cas_brezdelja <- sum(tabela_brezdelja$cas_brezdelja[tabela_brezdelja$cas_brezdelja >= 0])
@@ -67,4 +63,16 @@ pridobi_podatke <- function(tabela){
   c(stevilo_strank_v_celem_dnevu, odhod_knjiznicarja_domov, skupno_stevilo_prinesenih_knjig, skupni_cas_cakanja, najdaljsi_cas_cakanja, najdalje_v_knjiznici)
 }
 
- 
+
+#Kakšna je porazdelitev deležev knjig pri izposoji in vračanju
+vracanje_knjig <- function(tabela){
+  tabela_vrnjenih <- tabela %>% group_by(st_prinesenih_knjig) %>% count()
+  tabela_vrnjenih$delez <- tabela_vrnjenih$n / sum(tabela_vrnjenih$n)
+  tabela_vrnjenih
+}
+
+izposoja_knjig <- function(tabela){
+  tabela_izposojenih <- tabela %>% group_by(st_izposojenih_knjig) %>% count()
+  tabela_izposojenih$delez <- tabela_izposojenih$n / sum(tabela_izposojenih$n)
+  tabela_izposojenih
+}
