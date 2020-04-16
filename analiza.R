@@ -67,12 +67,24 @@ pridobi_podatke <- function(tabela){
 #Kakšna je porazdelitev deležev knjig pri izposoji in vračanju
 vracanje_knjig <- function(tabela){
   tabela_vrnjenih <- tabela %>% group_by(st_prinesenih_knjig) %>% count()
+  
+  stevila1 <- data.frame(c(1:8))
+  names(stevila1) <- c("st_prinesenih_knjig")
+  tabela_vrnjenih <- merge(x = stevila1, y = tabela_vrnjenih, all.x = TRUE)
+  
+  tabela_vrnjenih[is.na(tabela_vrnjenih)] <- 0
   tabela_vrnjenih$delez <- tabela_vrnjenih$n / sum(tabela_vrnjenih$n)
   tabela_vrnjenih
 }
 
 izposoja_knjig <- function(tabela){
   tabela_izposojenih <- tabela %>% group_by(st_izposojenih_knjig) %>% count()
+  
+  stevila1 <- data.frame(c(1:8))
+  names(stevila1) <- c("st_izposojenih_knjig")
+  tabela_izposojenih <- merge(x = stevila1, y = tabela_izposojenih, all.x = TRUE)
+  
+  tabela_izposojenih[is.na(tabela_izposojenih)] <- 0
   tabela_izposojenih$delez <- tabela_izposojenih$n / sum(tabela_izposojenih$n)
   tabela_izposojenih
 }
