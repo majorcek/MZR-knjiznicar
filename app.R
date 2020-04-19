@@ -2,9 +2,11 @@ library(shiny)
 library(shinydashboard)
 library(shinydashboardPlus)
 library(shinyWidgets)
+library(shinycssloaders)
+
 library(purrr)
 library(ggplot2)
-library(shinycssloaders)
+library(knitr)
 
 source("funkcija.R")
 source("analiza.R")
@@ -29,16 +31,11 @@ mycss <- "
 
 
 
-
-
-
-
-
-
 ui <- dashboardPagePlus(
   header <- dashboardHeaderPlus(titleWidth = 280, 
                                 title = "Projekt knjižničar", 
                                 enable_rightsidebar = FALSE),
+  
   sidebar <- dashboardSidebar(width = 280,
                               sidebarMenu(
                                 hr(),
@@ -88,10 +85,16 @@ ui <- dashboardPagePlus(
     tags$style(type = "text/css", "
       .irs-slider {width: 30px; height: 20px; top: 20px;}
     "),
+    
     tabsetPanel(type = "pills",
+                
+                tabPanel("OPIS PROBLEMA", 
+                         withMathJax(includeMarkdown("opis.md"))),
+                
                 tabPanel("STANJE V KNJIŽNICI", 
                          withSpinner(plotOutput("graf_stranke_vedno"), type = 2, color = "grey", color.background = 'lightblue'),
                          withSpinner(plotOutput("graf_brezdelje"), type = 2, color = "grey", color.background = 'lightblue')),
+                
                 tabPanel("PODATKI", 
                          fluidRow(column(7,
                                          plotOutput("graf_vrste_strank")),
@@ -112,6 +115,7 @@ ui <- dashboardPagePlus(
                                          "Dolžina najdaljšega opravka v knjižnici: ", verbatimTextOutput("max_cas_v_knjiznici"))
                          )
                 ),
+                
                 tabPanel("PRIMERJAVA",
                          fluidRow(column(6, 
                                          wellPanel(plotOutput("graf_knjige_izposojene"),
@@ -121,7 +125,8 @@ ui <- dashboardPagePlus(
                                          wellPanel(plotOutput("graf_knjige_vrnjene"),
                                                    verbatimTextOutput("delezi_vrnjene")))
                          ),
-                         fluidRow(verbatimTextOutput("utezi_in"))
+                         fluidRow(column(width = 5, 
+                                         offset = 1, "VHODNE VERJETNOSTI:", verbatimTextOutput("utezi_in")))
                 )
     )
   ),
@@ -138,6 +143,14 @@ ui <- dashboardPagePlus(
 
 server <- function(input, output, session){
   
+  ### ZAVIHEK OPIS 
+  
+  # outpu$markdown <- renderUI({
+  #   HTML(markdown::markdownToHTML(knit('www/opis.rmd', quiet = TRUE)))
+  # })
+  
+  
+  ### ZAVIHEK STANJE
   output$prvi_drsnik <- renderUI(sliderInput(inputId = "knjige_input1", label = "knjige_input1", value = 1, min = 0, max = 1, step = 0.01))
   col_names <- reactive(paste0("knjige_input", seq_len(input$max_izposojenih - 1) + 1))
   output$ostali_drsniki <- renderUI({
@@ -162,7 +175,7 @@ server <- function(input, output, session){
                             updateSliderInput(session, inputId = "knjige_input5", value = input$knjige_input5 / vsota_utezi)
                             updateSliderInput(session, inputId = "knjige_input6", value = input$knjige_input6 / vsota_utezi)
                             updateSliderInput(session, inputId = "knjige_input7", value = input$knjige_input7 / vsota_utezi)
-                            updateSliderInput(session, inputId = "knjige_input8", value = input$knjige_input8 / vsota_utezi)                          
+                            updateSliderInput(session, inputId = "knjige_input8", value = input$knjige_input8 / vsota_utezi)      
                             
                             ustvari_skupno_tabelo(input$parameter_prihodi, 
                                                   input$parameter_klici, 
@@ -194,7 +207,7 @@ server <- function(input, output, session){
   podatki <- reactive({pridobi_podatke(tabela())})
   
   output$skupno_strank <- renderText({as.integer(podatki()[1])})
-  output$zaklepanje <- renderText({podatki()[[2]]})
+  output$zaklepanje <- renderText({max(podatki()[[2]], input$cas_obratovanja)})
   output$skupno_knjige <- renderText({podatki()[[3]]})
   output$skupno_cakanje <- renderText({podatki()[[4]]})
   output$max_cakanje_na_strezbo <- renderText({podatki()[[5]]})
@@ -227,12 +240,14 @@ server <- function(input, output, session){
   
   output$graf_knjige_izposojene <- renderPlot({
     ggplot(data = izposoja_knjig(tabela())) +
-      geom_col(aes(x = st_izposojenih_knjig, y = n))
+      geom_col(aes(x = st_izposojenih_knjig, y = n), show.legend = FALSE) + 
+      theme(axis.title.y = element_blank())
   })
   
   output$graf_knjige_vrnjene <- renderPlot({
     ggplot(data = vracanje_knjig(tabela())) +
-      geom_col(aes(x = st_prinesenih_knjig, y = n))
+      geom_col(aes(x = st_prinesenih_knjig, y = n), show.legend = FALSE) + 
+      theme(axis.title.y = element_blank())
   })
   
   output$delezi_izposojene <- renderText({
@@ -245,10 +260,22 @@ server <- function(input, output, session){
     round(tabela_knjige_in$delez, digits = 2)
   })
   
-  output$utezi_in <- renderText({
-    c(input$knjige_input1, input$knjige_input2, input$knjige_input3, input$knjige_input4,
-      input$knjige_input5, input$knjige_input6, input$knjige_input7, input$knjige_input8)[1:input$max_izposojenih]
-  })
+  utezi <- eventReactive(c(input$parameter_prihodi, 
+                            input$parameter_klici, 
+                            input$posodobi,
+                            input$cas_obratovanja, 
+                            input$max_knjig,
+                            input$klici_ali,
+                            input$max_izposojenih),
+                          
+                          {
+                            vsota_utezi <- sum(c(input$knjige_input1, input$knjige_input2, input$knjige_input3, input$knjige_input4, input$knjige_input5, input$knjige_input6, input$knjige_input7, input$knjige_input8)[1:input$max_izposojenih])
+                            
+                            c(input$knjige_input1, input$knjige_input2, input$knjige_input3, input$knjige_input4, input$knjige_input5, input$knjige_input6, input$knjige_input7, input$knjige_input8)[1:input$max_izposojenih] / vsota_utezi
+                          })
+  
+  
+  output$utezi_in <- renderText({round(utezi(), digits = 2)})
 }
 
 shinyApp(ui = ui, server = server)
