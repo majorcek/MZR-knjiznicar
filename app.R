@@ -81,6 +81,9 @@ ui <- dashboardPagePlus(
   ),
   
   body <- dashboardBody(
+    tags$head(
+      tags$style(HTML("hr {border-top: 1px solid grey;}"))
+    ),
     tags$head(tags$style(".sidebar-menu li { margin-bottom: -2px; }")),
     tags$style(type = "text/css", "
       .irs-slider {width: 30px; height: 20px; top: 20px;}
@@ -96,21 +99,15 @@ ui <- dashboardPagePlus(
                          withSpinner(plotOutput("graf_brezdelje"), type = 2, color = "grey", color.background = 'lightblue')),
                 
                 tabPanel("PODATKI", 
-                         fluidRow(column(7,
-                                         plotOutput("graf_vrste_strank")),
-                                  column(5,
-                                         wellPanel("Skupno število strank: ", verbatimTextOutput("skupno_strank")),
-                                         wellPanel("Skupno število prinešenih knjig: ", verbatimTextOutput("skupno_knjige")),
-                                         wellPanel("Čas, ko knjižničar zaključi z delom: ", verbatimTextOutput("zaklepanje")))),
-                         
+                         fluidRow( wellPanel("Skupno število prinešenih knjig: ", verbatimTextOutput("skupno_knjige")),
+                                   wellPanel("Čas, ko knjižničar zaključi z delom: ", verbatimTextOutput("zaklepanje")),
+                                   wellPanel("Skupno število strank: ", verbatimTextOutput("skupno_strank"))),
+                
                          hr(),
-                         fluidRow(column(2,
-                                         wellPanel("Skupni čas čakanja:" , verbatimTextOutput("skupno_cakanje"))),
-                                  
-                                  column(5,
+                         fluidRow(column(6,
                                          plotOutput("graf_cakanje"),
                                          "Dolzina najdaljšega čakanje na strežbo: ", verbatimTextOutput("max_cakanje_na_strezbo")),
-                                  column(5,
+                                  column(6,
                                          plotOutput("graf_v_knjiznici"),
                                          "Dolžina najdaljšega opravka v knjižnici: ", verbatimTextOutput("max_cas_v_knjiznici"))
                          )
@@ -126,7 +123,12 @@ ui <- dashboardPagePlus(
                                                    verbatimTextOutput("delezi_vrnjene")))
                          ),
                          fluidRow(column(width = 5, 
-                                         offset = 1, "VHODNE VERJETNOSTI:", verbatimTextOutput("utezi_in")))
+                                         offset = 1, "VHODNE VERJETNOSTI:", verbatimTextOutput("utezi_in"))),
+                         
+                         hr(),
+                         
+                         fluidRow(plotOutput("graf_vrste_strank"))
+                         
                 )
     )
   ),
@@ -191,63 +193,76 @@ server <- function(input, output, session){
     tabela_stranke_prihodi <- naredi_tabelo_stanja_strank(tabela())
     ggplot(data = tabela_stranke_prihodi) +
       geom_step(mapping = aes(x = cas, y = stevilo_strank_v_knjiznici)) +
-      scale_x_continuous(breaks=seq(0, tail(tabela()$cas_odhoda,1) + tail(tabela()$cas_knjiznicarja,1), ((tail(tabela()$cas_odhoda,1) + tail(tabela()$cas_knjiznicarja,1))%/%1000) * 100))
-  })
+      scale_x_continuous(breaks=seq(0, tail(tabela()$cas_odhoda,1) + tail(tabela()$cas_knjiznicarja,1), ((tail(tabela()$cas_odhoda,1) + tail(tabela()$cas_knjiznicarja,1))%/%1000) * 100)) + 
+      xlab("ČAS") + 
+      ylab("ŠTEVILO STRANK V KNJIŽNICI")
+  
+    })
   
   output$graf_brezdelje <- renderPlot({
     tabela_brezdelje <- naredi_tabelo_brez_dela(tabela(), tail(tabela()$cas_odhoda,1) + tail(tabela()$cas_knjiznicarja,1))
     ggplot(data = tabela_brezdelje) + 
       geom_point(mapping = aes(x = cas, y = cas_brez_dela)) +
       geom_line(mapping = aes(x = cas, y = cas_brez_dela)) +
-      scale_x_continuous(breaks=seq(0, tail(tabela()$cas_odhoda,1) + tail(tabela()$cas_knjiznicarja,1), ((tail(tabela()$cas_odhoda,1) + tail(tabela()$cas_knjiznicarja,1))%/%1000) * 100))
-  })
+      scale_x_continuous(breaks=seq(0, tail(tabela()$cas_odhoda,1) + tail(tabela()$cas_knjiznicarja,1), ((tail(tabela()$cas_odhoda,1) + tail(tabela()$cas_knjiznicarja,1))%/%1000) * 100)) + 
+      xlab("ČAS") + 
+      ylab("ČAS BREZDELJA")
+    
+    })
   
   ######## ZAVIHEK PODATKI
   
   podatki <- reactive({pridobi_podatke(tabela())})
-  
   output$skupno_strank <- renderText({as.integer(podatki()[1])})
   output$zaklepanje <- renderText({max(podatki()[[2]], input$cas_obratovanja)})
   output$skupno_knjige <- renderText({podatki()[[3]]})
   output$skupno_cakanje <- renderText({podatki()[[4]]})
   output$max_cakanje_na_strezbo <- renderText({podatki()[[5]]})
   output$max_cas_v_knjiznici <- renderText({podatki()[[6]]})
-  
-  output$graf_vrste_strank <- renderPlot({
-    tabela_stranke_opravila <- tabela() %>% group_by(vrsta_opravila) %>% count()
-    ggplot(data = tabela_stranke_opravila) +
-      geom_bar(width = 1, aes(x = "", y = n, fill=vrsta_opravila), stat = "identity") +
-      coord_polar("y", start=0) +
-      scale_fill_manual(values=list("#999999", "#E69F00", "#56B4E9", "#6C8029"))
-  })
+    
   output$graf_v_knjiznici <- renderPlot({
     tabela_v_knjiznici <- data.frame(tabela()$vrstni_red, tabela()$cas_odhoda - tabela()$cas_prihoda)
     names(tabela_v_knjiznici) <- c("vrstni red", "cas v knjiznici")
     ggplot(data = tabela_v_knjiznici) +
-      geom_col(aes(x = `vrstni red`, y = `cas v knjiznici`))
+      geom_col(aes(x = `vrstni red`, y = `cas v knjiznici`))+ 
+      xlab("n") + 
+      ylab("ČAS V KNJIŽNICI")
   })
   
   output$graf_cakanje <- renderPlot({
     tabela_cakanje <- data.frame(tabela()$vrstni_red, tabela()$cas_zacetka_strezbe - tabela()$cas_prihoda)
     names(tabela_cakanje) <- c("vrstni red", "cas cakanja")
     ggplot(data = tabela_cakanje) +
-      geom_col(aes(x = `vrstni red`, y = `cas cakanja`))
+      geom_col(aes(x = `vrstni red`, y = `cas cakanja`)) +
+      xlab("n") +
+      ylab("ČAS ČAKANJA")
   })
   
   
   #################################### ZAVIHEK PRIMERJAVA
   
-  
+  output$graf_vrste_strank <- renderPlot({
+    tabela_stranke_opravila <- tabela() %>% group_by(vrsta_opravila) %>% count()
+    ggplot(data = tabela_stranke_opravila) +
+      geom_bar(width = 1, aes(x = "", y = n, fill=vrsta_opravila), stat = "identity") +
+      coord_polar("y", start=0) +
+      scale_fill_manual(values=list("#999999", "#E69F00", "#56B4E9", "#6C8029")) + 
+      theme(axis.title.x = element_blank()) + 
+      theme(axis.title.y = element_blank())
+    })
+
   output$graf_knjige_izposojene <- renderPlot({
     ggplot(data = izposoja_knjig(tabela())) +
       geom_col(aes(x = st_izposojenih_knjig, y = n), show.legend = FALSE) + 
-      theme(axis.title.y = element_blank())
+      xlab("N") + 
+      ylab("POGOSTOST IZPOSOJE N KNJIG") 
   })
   
   output$graf_knjige_vrnjene <- renderPlot({
     ggplot(data = vracanje_knjig(tabela())) +
       geom_col(aes(x = st_prinesenih_knjig, y = n), show.legend = FALSE) + 
-      theme(axis.title.y = element_blank())
+      xlab("N") + 
+      ylab("POGOSTOST VRAČANJA N KNJIG") 
   })
   
   output$delezi_izposojene <- renderText({
